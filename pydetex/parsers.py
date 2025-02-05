@@ -202,7 +202,7 @@ def remove_tag(s: str, tagname: str) -> str:
     #             break
 
 
-    # Turn items into sentences specifically for the project I work on
+    # Turn sections into sentences specifically for the project I work on
     tagname = '\\' + tagname
     tagadd = 1
     if '{' not in tagname:
@@ -224,10 +224,12 @@ def remove_tag(s: str, tagname: str) -> str:
             if deep == 0 and f:
                 # update s
                 content = s[k + len(tagname) + tagadd:k + j]
-                content = content[0].upper() + content[1:]
-                if not content.endswith('.'):
-                    content += '.'
-                s = s[:k] + '\n' + content + '\n' + s[k + j + 1:]
+                if "section" in tagname:
+                    content = content[0].upper() + content[1:]
+                    if not content.endswith('.'):
+                        content += '.'
+                    content = '\n' + content + '\n'
+                s = s[:k] + content + s[k + j + 1:]
                 break
 
 
