@@ -1318,7 +1318,11 @@ def _process_item(s: str, t: str, depth: int = 0) -> str:
     """
     if len(s) == 0:
         return ''
-    line = '\n' + _TAG_ITEM_SPACE * (3 * depth)
+
+    # Remove indentations specifically for the project I work on
+    line = '\n' * (depth)
+
+    # line = '\n' + _TAG_ITEM_SPACE * (3 * depth)
 
     def _num(x: int) -> str:
         """
@@ -1396,6 +1400,9 @@ def _process_item(s: str, t: str, depth: int = 0) -> str:
             if not item.endswith('.'):
                 item += '.'
             new_s += f"{line}{item}\n"
+
+        new_s = new_s.replace('\n\n', '\n').strip()
+
     else:
         # new_s = s.replace('\\item', _itm())
 
