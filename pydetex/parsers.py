@@ -178,6 +178,31 @@ def remove_tag(s: str, tagname: str) -> str:
     :param tagname: Tag code
     :return: String without tags
     """
+    # tagname = '\\' + tagname
+    # tagadd = 1
+    # if '{' not in tagname:
+    #     tagname += '{'
+    #     tagadd = 0
+    # while True:
+    #     k = find_str(s, tagname)
+    #     if k == -1:  # No more tags, return
+    #         return s
+    #     deep = 0
+    #     f = False
+    #     for j in range(len(s)):
+    #         if s[k + j] == '{':
+    #             deep += 1
+    #             f = True
+    #             continue
+    #         if s[k + j] == '}':
+    #             deep -= 1
+    #         if deep == 0 and f:
+    #             # update s
+    #             s = s[:k] + s[k + len(tagname) + tagadd:k + j] + s[k + j + 1:]
+    #             break
+
+
+    # Turn items into sentences specifically for the project I work on
     tagname = '\\' + tagname
     tagadd = 1
     if '{' not in tagname:
@@ -198,7 +223,11 @@ def remove_tag(s: str, tagname: str) -> str:
                 deep -= 1
             if deep == 0 and f:
                 # update s
-                s = s[:k] + s[k + len(tagname) + tagadd:k + j] + s[k + j + 1:]
+                content = s[k + len(tagname) + tagadd:k + j]
+                content = content[0].upper() + content[1:]
+                if not content.endswith('.'):
+                    content += '.'
+                s = s[:k] + '\n' + content + '\n' + s[k + j + 1:]
                 break
 
 
@@ -756,8 +785,10 @@ def output_text_for_some_commands(
         ('otherentry', [1, 2], '{0} {1}', 'normal', 'normal', (False, False)),  # (Template) Professional-CV
         ('paragraph', [1], '{0}', 'normal', 'bold', (True, True)),
         ('quotes', [1], lambda t: '"{0}"'.format(t), 'normal', 'normal', (False, False)),
-        ('section', [1], '{0}', 'normal', 'bold', (True, True)),
-        ('section*', [1], '{0}', 'normal', 'bold', (True, True)),
+        ('section', [1], lambda t: t.strip().capitalize() + ('.' if not t.strip().endswith('.') else ''), 'normal',
+         'normal', (True, True)),
+        ('section*', [1], lambda t: t.strip().capitalize() + ('.' if not t.strip().endswith('.') else ''), 'normal',
+         'normal', (True, True)),
         ('so', [1], '{0}', 'normal', 'normal', (False, False)),
         ('sout', [1], '{0}', 'normal', 'strike', (False, False)),
         ('st', [1], '{0}', 'normal', 'strike', (False, False)),
@@ -1313,9 +1344,7 @@ def _process_item(s: str, t: str, depth: int = 0) -> str:
         """
         :return: The item string based on depth.
         """
-        char = ['-', '•', '◦', '■', '*']
-        x = char[depth % 5]
-        return f'{line}{x} '
+        return f'{line}'
 
     # Remove optional arguments list
     if s[0] == '[':
@@ -1339,22 +1368,47 @@ def _process_item(s: str, t: str, depth: int = 0) -> str:
     s = s_
 
     if t == 'enumerate':
-        s += ' ' * 5
-        new_s = ''
-        k = 1
-        j = -1
-        while True:
-            j += 1
-            if s[j:j + 5] == '\\item':
-                new_s += _num(k)
-                j += 5
-                k += 1
-            else:
-                new_s += s[j]
-            if j == len(s) - 5:
-                break
+        # s += ' ' * 5
+        # new_s = ''
+        # k = 1
+        # j = -1
+        # while True:
+        #     j += 1
+        #     if s[j:j + 5] == '\\item':
+        #         new_s += _num(k)
+        #         j += 5
+        #         k += 1
+        #     else:
+        #         new_s += s[j]
+        #     if j == len(s) - 5:
+        #         break
+
+        # Turn items into sentences specifically for the project I work on
+        items = s.split('\\item')
+        new_s = ""
+        for item in items:
+            item = item.strip()
+            if not item:
+                continue
+            item = item[0].upper() + item[1:]
+            if not item.endswith('.'):
+                item += '.'
+            new_s += f"{line}{item}\n"
     else:
-        new_s = s.replace('\\item', _itm())
+        # new_s = s.replace('\\item', _itm())
+
+        # Turn items into sentences specifically for the project I work on
+        items = s.split('\\item')
+        new_s = ""
+        for item in items:
+            item = item.strip()
+            if not item:
+                continue
+            item = item[0].upper() + item[1:]
+            if not item.endswith('.'):
+                item += '.'
+            new_s += f"{line}{item}\n"
+
 
     # Last operations
     new_s = new_s.replace('\n\n', '\n').strip(' ')
