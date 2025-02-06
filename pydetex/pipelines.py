@@ -61,9 +61,9 @@ def simple(
     s = par.process_ref(s, pb=pb)
     s = par.process_labels(s, pb=pb)
     s = par.process_items(s, lang, pb=pb)
-    if replace_single_chars_eqn:
-        s = par.process_chars_equations(s, lang, single_only=True, pb=pb)
-    s = par.unicode_chars_equations(s, pb=pb)
+    # if replace_single_chars_eqn:
+    #     s = par.process_chars_equations(s, lang, single_only=True, pb=pb)
+    # s = par.unicode_chars_equations(s, pb=pb)
     s = par.remove_comments(s, pb=pb)  # comments, replace tags, strip
     if replace_pydetex_tags:
         s = par.replace_pydetex_tags(s, pb=pb, **kwargs)
@@ -78,6 +78,7 @@ def simple(
     s = par.process_footnotes(s, pb=pb)
     s = par.process_table(s, pb=pb)
     s = par.process_verbatim(s, pb=pb)
+    s = par.remove_environment_content(s, pb=pb)
     if s[-1] == '\\':
         s = s[0:len(s) - 1]
     return s
@@ -123,6 +124,7 @@ def strict(
     s = par.process_commands_no_arguments(s, pb=pb)
     s = par.process_table(s, pb=pb)
     s = par.process_verbatim(s, pb=pb)
+    s = par.remove_environment_content(s, pb=pb)
     return s
 
 

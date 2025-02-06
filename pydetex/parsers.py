@@ -38,7 +38,8 @@ __all__ = [
     'process_url',
     'process_footnotes',
     'process_commands_no_arguments',
-    'process_verbatim'
+    'process_verbatim',
+    'remove_environment_content'
 ]
 
 import os
@@ -1843,3 +1844,36 @@ def process_verbatim(s: str, **kwargs) -> str:
 
     return s
 
+
+def remove_environment_content(
+    s: str,
+    env_list: Optional[List[str]] = None,
+    **kwargs
+) -> str:
+    """
+    Remove contents of environments.
+
+    :param s: Latex code
+    :param env_list: Environment list, if not defined, use the default from PyDetex
+    :return: Code without given environments and their contents
+    """
+    if not env_list:
+        env_list = [
+            'lstlisting',
+            'equation'
+        ]
+
+    for env in env_list:
+        begin_tag = f"\\begin{{{env}}}"
+        end_tag = f"\\end{{{env}}}"
+
+        while begin_tag in s and end_tag in s:
+            env_start = s.find(begin_tag)
+            env_end = s.find(end_tag) + len(end_tag)
+            env = env[0].upper() + env[1:]
+            s = s[:env_start] + f"{env} placeholder." + s[env_end:]
+
+        if kwargs.get('pb'):
+            kwargs.get('pb').update(f'Processing {env} environment')
+
+    return s
