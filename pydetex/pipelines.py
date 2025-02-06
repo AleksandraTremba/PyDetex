@@ -69,12 +69,15 @@ def simple(
         s = par.replace_pydetex_tags(s, pb=pb, **kwargs)
     s = par.strip_punctuation(s, pb=pb)
     s = par.simple_replace(s, pb=pb)
+    s = par.process_commands_no_arguments(s, pb=pb)
     s = par.process_figure(s, pb=pb)
     s = par.process_longtable(s, pb=pb)
     s = par.process_backslash(s, pb=pb)
     s = par.process_latex(s, pb=pb)
     s = par.process_url(s, pb=pb)
     s = par.process_footnotes(s, pb=pb)
+    s = par.process_table(s, pb=pb)
+    s = par.process_verbatim(s, pb=pb)
     if s[-1] == '\\':
         s = s[0:len(s) - 1]
     return s
@@ -117,6 +120,9 @@ def strict(
     s = par.process_latex(s, pb=pb)
     s = par.process_url(s, pb=pb)
     s = par.process_footnotes(s, pb=pb)
+    s = par.process_commands_no_arguments(s, pb=pb)
+    s = par.process_table(s, pb=pb)
+    s = par.process_verbatim(s, pb=pb)
     return s
 
 
