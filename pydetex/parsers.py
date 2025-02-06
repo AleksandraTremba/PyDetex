@@ -32,10 +32,13 @@ __all__ = [
     'unicode_chars_equations',
     'process_figure',
     'process_longtable',
+    'process_table',
     'process_backslash',
     'process_latex',
     'process_url',
-    'process_footnotes'
+    'process_footnotes',
+    'process_commands_no_arguments',
+    'process_verbatim'
 ]
 
 import os
@@ -255,10 +258,15 @@ def remove_common_tags(
             'subsection',
             'subsubsection',
             'subsubsubsection',
+            'section*',
+            'subsection*',
+            'subsubsection*',
+            'subsubsubsection*',
             'textbf',
             'textit',
             'textsuperscript',
-            'texttt'
+            'texttt',
+            'it'
         ]
 
     for tag in replace_tags:
@@ -1613,6 +1621,79 @@ def process_longtable(s: str, **kwargs) -> str:
     return s
 
 
+def process_table(s: str, **kwargs) -> str:
+    """
+    Extract plain text from a LaTeX table environment and modify the input string.
+
+    :param s: LaTeX string containing a table
+    :return: Modified LaTeX string with extracted table content as plain text
+    """
+    if "\\begin{table}" not in s:
+        if kwargs.get('pb'):
+            kwargs.get('pb').update('No table environment found')
+        return s
+
+    while "\\begin{table}" in s:
+        table_start = s.find("\\begin{table}")
+        table_end = s.find("\\end{table}") + len("\\end{table}")
+        table_code = s[table_start:table_end]
+
+        # Extract caption
+        caption = "No caption"
+        caption_start = table_code.find("\\caption{")
+        if caption_start != -1:
+            caption_end = table_code.find("}", caption_start + len("\\caption{"))
+            if caption_end != -1:
+                caption = table_code[caption_start + len("\\caption{"):caption_end]
+
+        # Extract tabular environment
+        tabular_start = table_code.find("\\begin{tabular}")
+        tabular_end = table_code.find("\\end{tabular}") + len("\\end{tabular}")
+        if tabular_start == -1 or tabular_end == -1:
+            return s
+
+        tabular_content = table_code[tabular_start:tabular_end]
+
+        # Process rows
+        rows = []
+        for line in tabular_content.split("\\hline"):
+            line = line.strip()
+            if not line or "\\begin{tabular}" in line or "\\end{tabular}" in line:
+                continue
+
+            # Remove LaTeX commands like \textbf and \newline
+            while "\\" in line:
+                cmd_start = line.find("\\")
+                cmd_end = line.find("{", cmd_start)
+                if cmd_end != -1:
+                    cmd_close = line.find("}", cmd_end)
+                    if cmd_close != -1:
+                        line = line[:cmd_start] + line[cmd_close + 1:]
+                    else:
+                        break
+                else:
+                    break
+
+            # Replace LaTeX newline command
+            line = line.replace("\\newline", " ")
+
+            # Format as a sentence
+            columns = [col.strip() for col in line.split("&")]
+            if columns:
+                rows.append(", ".join(columns) + ".")
+
+        # Combine everything
+        parsed_table = f"Table caption: {caption}\n" + "\n".join(rows)
+
+        # Replace the table environment with the processed version in the original string
+        s = s[:table_start] + parsed_table + s[table_end:]
+
+    if kwargs.get('pb'):
+        kwargs.get('pb').update('Processing table environment')
+
+    return s
+
+
 def process_backslash(s: str, **kwargs):
     """
         Process backslash commands (no arguments).
@@ -1644,6 +1725,46 @@ def process_latex(s: str, **kwargs):
 
     s = s.replace(r'\LaTeX', 'LaTeX')
 
+    return s
+
+
+def remove_command_no_arguments(s: str, tagname: str) -> str:
+    """
+    Removes a latex tag code.
+
+    :param s: Latex string code
+    :param tagname: Tag code
+    :return: String without tags
+    """
+    command = '\\' + tagname
+    s = s.replace(command + " ", '')
+    s = s.replace(command, '')
+    return s
+
+
+def process_commands_no_arguments(
+    s: str,
+    replace_tags: Optional[List] = None,
+    **kwargs
+) -> str:
+    """
+    Remove common tags from string.
+
+    :param s: Latex string code
+    :param replace_tags: List to replace. If ``None``, default will be used
+    :return: Text without tags
+    """
+    if replace_tags is None:
+        replace_tags = [
+            'pagebreak',
+            'noindent',
+        ]
+
+    for tag in replace_tags:
+        s = remove_command_no_arguments(s, tag)
+
+    if kwargs.get('pb'):  # Update progressbar
+        kwargs.get('pb').update('Removing common tags')
     return s
 
 
@@ -1690,3 +1811,35 @@ def process_footnotes(s: str, **kwargs):
         kwargs.get('pb').update('Processing footnotes')
 
     return s
+
+
+def process_verbatim(s: str, **kwargs) -> str:
+    """
+    Extract plain text from a LaTeX verbatim environment and modify the input string.
+
+    :param s: LaTeX string containing a verbatim block
+    :return: Modified LaTeX string with extracted verbatim content as plain text
+    """
+    if "\\begin{verbatim}" not in s:
+        if kwargs.get('pb'):
+            kwargs.get('pb').update('No verbatim environment found')
+        return s
+
+    while "\\begin{verbatim}" in s:
+        verbatim_start = s.find("\\begin{verbatim}")
+        verbatim_end = s.find("\\end{verbatim}") + len("\\end{verbatim}")
+        verbatim_code = s[verbatim_start:verbatim_end]
+
+        # Extract content inside verbatim
+        content_start = verbatim_code.find("\\begin{verbatim}") + len("\\begin{verbatim}")
+        content_end = verbatim_code.find("\\end{verbatim}")
+        verbatim_content = verbatim_code[content_start:content_end].strip()
+
+        # Replace the verbatim environment with the extracted text
+        s = s[:verbatim_start] + verbatim_content + s[verbatim_end:]
+
+    if kwargs.get('pb'):
+        kwargs.get('pb').update('Processing verbatim environment')
+
+    return s
+
