@@ -54,8 +54,7 @@ def simple(
     s = par.process_begin_document(s, pb=pb)
     s = par.simple_replace(s, pb=pb)
     s = par.process_def(s, pb=pb, replace=kwargs.get('replace_defs', False))
-    if remove_common_tags:
-        s = par.remove_common_tags(s, pb=pb)
+    s = par.remove_common_tags(s, pb=pb)
     s = par.process_cite(s, pb=pb, compress_cite=kwargs.get('compress_cite', True))
     s = par.process_citeauthor(s, lang, pb=pb)
     s = par.process_ref(s, pb=pb)
@@ -72,13 +71,15 @@ def simple(
     s = par.process_commands_no_arguments(s, pb=pb)
     s = par.process_figure(s, pb=pb)
     s = par.process_longtable(s, pb=pb)
-    s = par.process_backslash(s, pb=pb)
-    s = par.process_latex(s, pb=pb)
     s = par.process_url(s, pb=pb)
     s = par.process_footnotes(s, pb=pb)
     s = par.process_table(s, pb=pb)
     s = par.process_verbatim(s, pb=pb)
     s = par.remove_environment_content(s, pb=pb)
+    s = par.process_commands_with_arguments(s, pb=pb)
+    s = par.process_commutable_сommands(s, pb=pb)
+    s = par.process_matrix(s, pb=pb)
+    s = par.remove_math_commands(s, pb=pb)
     if s[-1] == '\\':
         s = s[0:len(s) - 1]
     return s
@@ -117,14 +118,16 @@ def strict(
     s = par.simple_replace(s, pb=pb)
     s = par.process_figure(s, pb=pb)
     s = par.process_longtable(s, pb=pb)
-    s = par.process_backslash(s, pb=pb)
-    s = par.process_latex(s, pb=pb)
     s = par.process_url(s, pb=pb)
     s = par.process_footnotes(s, pb=pb)
     s = par.process_commands_no_arguments(s, pb=pb)
     s = par.process_table(s, pb=pb)
     s = par.process_verbatim(s, pb=pb)
     s = par.remove_environment_content(s, pb=pb)
+    s = par.process_commands_with_arguments(s, pb=pb)
+    s = par.process_commutable_сommands(s, pb=pb)
+    s = par.process_matrix(s, pb=pb)
+    s = par.remove_math_commands(s, pb=pb)
     return s
 
 

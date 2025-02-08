@@ -33,13 +33,15 @@ __all__ = [
     'process_figure',
     'process_longtable',
     'process_table',
-    'process_backslash',
-    'process_latex',
     'process_url',
     'process_footnotes',
     'process_commands_no_arguments',
     'process_verbatim',
-    'remove_environment_content'
+    'remove_environment_content',
+    'process_commands_with_arguments',
+    'process_commutable_сommands',
+    'process_matrix',
+    'remove_math_commands'
 ]
 
 import os
@@ -267,6 +269,7 @@ def remove_common_tags(
             'textit',
             'textsuperscript',
             'texttt',
+            'text'
             'it'
         ]
 
@@ -1695,36 +1698,77 @@ def process_table(s: str, **kwargs) -> str:
     return s
 
 
-def process_backslash(s: str, **kwargs):
+def process_matrix(s: str, **kwargs) -> str:
     """
-        Process backslash commands (no arguments).
+    Process matrix environments and extract the content, converting it into sentences.
 
-        :param s: Latex string code
-        :return: Processed backslash.
-        """
-    if '\\textbackslash' not in s:
-        if kwargs.get('pb'):  # Update progressbar
-            kwargs.get('pb').update('No backslashes found')
-        return s
+    :param s: Latex string code
+    :return: Processed matrix content as sentences
+    """
+    matrix_environments = [
+        r'\begin{matrix}', r'\end{matrix}',
+        r'\begin{bmatrix}', r'\end{bmatrix}',
+        r'\begin{Bmatrix}', r'\end{Bmatrix}',
+        r'\begin{pmatrix}', r'\end{pmatrix}',
+        r'\begin{vmatrix}', r'\end{vmatrix}',
+        r'\begin{Vmatrix}', r'\end{Vmatrix}'
+    ]
 
-    s = s.replace(r'\textbackslash ', '\\')
+    for env_start, env_end in zip(matrix_environments[::2], matrix_environments[1::2]):
+        while env_start in s:
+            matrix_start = s.find(env_start)
+            matrix_end = s.find(env_end, matrix_start) + len(env_end)
+            matrix_code = s[matrix_start:matrix_end]
+
+            # Extract content between the environment tags
+            content_start = matrix_code.find(env_start) + len(env_start)
+            content_end = matrix_code.find(env_end)
+            content = matrix_code[content_start:content_end].strip()
+
+            # Process rows
+            rows = content.split(r'\\')
+            table_content = []
+            for row in rows:
+                row = row.strip()
+                if row:
+                    columns = row.split('&')
+                    formatted_row = ', '.join([col.strip() for col in columns]) + '.'
+                    table_content.append(formatted_row)
+
+            # Combine the results
+            parsed_matrix = f"Matrix content:\n" + '\n'.join(table_content)
+
+            # Replace the matrix environment with the processed version in the original string
+            s = s[:matrix_start] + parsed_matrix + s[matrix_end:]
+
+    if kwargs.get('pb'):  # Update progressbar
+        kwargs.get('pb').update('Processing matrix environments')
 
     return s
 
 
-def process_latex(s: str, **kwargs):
+def process_commutable_сommands(s: str, **kwargs):
     """
         Process Latex command (no arguments).
 
         :param s: Latex string code
         """
 
+    replace_tags = {
+        "LaTeX": "LaTeX",
+        "textunderscore": "_",
+        "textbackslash": "\\"
+    }
+
+    # Change later
     if '\\LaTeX' not in s:
         if kwargs.get('pb'):  # Update progressbar
             kwargs.get('pb').update('No LaTeX commands found')
         return s
 
-    s = s.replace(r'\LaTeX', 'LaTeX')
+    for key in replace_tags:
+        command = "\\" + key
+        s = s.replace(command, replace_tags[key])
 
     return s
 
@@ -1759,10 +1803,62 @@ def process_commands_no_arguments(
         replace_tags = [
             'pagebreak',
             'noindent',
+            'newline',
+            'quad',
+            'displaystyle'
         ]
 
     for tag in replace_tags:
         s = remove_command_no_arguments(s, tag)
+
+    if kwargs.get('pb'):  # Update progressbar
+        kwargs.get('pb').update('Removing common tags')
+    return s
+
+
+def remove_command_with_arguments(s: str, tagname: str) -> str:
+    """
+    Removes a latex tag code.
+
+    :param s: Latex string code
+    :param tagname: Tag code
+    :return: String without tags
+    """
+    command = '\\' + tagname
+
+    while True:
+        k = find_str(s, command +'{')
+        if k == -1:
+            return s
+        for j in range(len(s)):
+            if s[k + j] == '}':
+                tagname = tagname[0].upper() + tagname[1:]
+                s = s[:k] + f"{tagname} placeholder." + s[k + j + 1:]
+                break
+
+    return s
+
+
+def process_commands_with_arguments(
+    s: str,
+    replace_tags: Optional[List] = None,
+    **kwargs
+) -> str:
+    """
+    Remove common tags from string.
+
+    :param s: Latex string code
+    :param replace_tags: List to replace. If ``None``, default will be used
+    :return: Text without tags
+    """
+    if replace_tags is None:
+        replace_tags = [
+            'nameref',
+            'mathbf'
+        ]
+
+    for tag in replace_tags:
+        s = remove_command_with_arguments(s, tag)
 
     if kwargs.get('pb'):  # Update progressbar
         kwargs.get('pb').update('Removing common tags')
@@ -1860,7 +1956,7 @@ def remove_environment_content(
     if not env_list:
         env_list = [
             'lstlisting',
-            'equation'
+            'equation',
         ]
 
     for env in env_list:
@@ -1877,3 +1973,23 @@ def remove_environment_content(
             kwargs.get('pb').update(f'Processing {env} environment')
 
     return s
+
+def remove_math_commands(s: str, **kwargs) -> str:
+    """
+    Remove math commands from LaTeX code.
+
+    :param s: LaTeX code
+    :return: Code without math commands
+    """
+    # Remove inline math commands \( ... \) and $ ... $
+    s = re.sub(r'\\\(.*?\\\)', 'math placeholder', s)
+    s = re.sub(r'\$.*?\$', 'math placeholder', s)
+
+    # Remove display math commands \[ ... \]
+    s = re.sub(r'\\\[.*?\\\]', '(math equation placeholder)', s)
+
+    # Remove \begin{math} ... \end{math} environments
+    s = re.sub(r'\\begin{math}.*?\\end{math}', 'math placeholder', s, flags=re.DOTALL)
+
+    return s
+
