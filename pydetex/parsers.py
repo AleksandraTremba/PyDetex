@@ -38,10 +38,11 @@ __all__ = [
     'process_commands_no_arguments',
     'process_verbatim',
     'remove_environment_content',
-    'process_commands_with_arguments',
+    'process_removable_commands_with_arguments',
     'process_commutable_сommands',
     'process_matrix',
-    'remove_math_commands'
+    'remove_math_commands',
+    'process_commands_with_arguments'
 ]
 
 import os
@@ -306,71 +307,93 @@ def process_cite(
     look_eqn = ['\\eqref{']
     look += look_eqn
     k = -1
+    # while True:
+    #     run_j = ''
+    #     for j in look.copy():
+    #         k = find_str(s, j)
+    #         if k == -1:
+    #             look.remove(j)
+    #         else:
+    #             run_j = j
+    #             break
+    #     if k == -1:
+    #         if kwargs.get('pb'):  # Update progressbar
+    #             kwargs.get('pb').update('Processing cites')
+    #         return s
+    #     for j in range(len(s)):
+    #         if s[k + j] == '}':
+    #             c = s[k + len(run_j):k + j]
+    #
+    #             # Create the number of the cites
+    #             cite_nums: List[int] = []
+    #             for w in c.split(','):
+    #                 w = w.strip()
+    #                 if w not in cites.keys():
+    #                     cites[w] = len(cites.keys()) + 1
+    #                 cite_nums.append(cites[w])
+    #                 c = c.replace(w, str(cites[w]))
+    #
+    #             # Sort the cites
+    #             if sort_cites:
+    #                 cite_nums.sort()
+    #
+    #             new_cites: List[str] = []
+    #
+    #             # Compress
+    #             if compress_cite:
+    #                 cont = False  # Cite number continues
+    #                 prev_c = -1  # Previous cite
+    #                 compr_range = -1  # First compress
+    #                 for w in cite_nums:
+    #                     if w - prev_c != 1 or w == cite_nums[-1]:
+    #                         if cont:
+    #                             # Find if the first is present in the list
+    #                             for m in range(len(new_cites)):
+    #                                 if new_cites[m] == str(compr_range):
+    #                                     new_cites.pop(m)
+    #                                     break
+    #                             new_cites.append(f'{compr_range}-{w}')
+    #                         else:
+    #                             new_cites.append(str(w))
+    #                         cont = False
+    #                         compr_range = w
+    #                     else:
+    #                         cont = True
+    #                     prev_c = w
+    #
+    #             else:
+    #                 for w in cite_nums:
+    #                     new_cites.append(str(w))
+    #
+    #             c = cite_separator.join(new_cites)
+    #             eqn_mode = run_j in look_eqn
+    #             open_cite = _TAG_OPEN_CITE if not eqn_mode else _TAG_OPEN_CITE_EQN
+    #             close_cite = _TAG_CLOSE_CITE if not eqn_mode else _TAG_CLOSE_CITE_EQN
+    #             s = s[:k] + FONT_FORMAT_SETTINGS['cite'] + open_cite + c + \
+    #                 close_cite + FONT_FORMAT_SETTINGS['normal'] + s[k + j + 1:]
+    #             break
+
+    # formatting for my project
     while True:
-        run_j = ''
-        for j in look.copy():
-            k = find_str(s, j)
-            if k == -1:
-                look.remove(j)
-            else:
-                run_j = j
+        # Find the first occurrence of any citation command
+        k = -1
+        for cmd in look:
+            k = s.find(cmd)
+            if k != -1:
                 break
+
+        # If no citation commands are found, return the string
         if k == -1:
-            if kwargs.get('pb'):  # Update progressbar
-                kwargs.get('pb').update('Processing cites')
             return s
-        for j in range(len(s)):
-            if s[k + j] == '}':
-                c = s[k + len(run_j):k + j]
 
-                # Create the number of the cites
-                cite_nums: List[int] = []
-                for w in c.split(','):
-                    w = w.strip()
-                    if w not in cites.keys():
-                        cites[w] = len(cites.keys()) + 1
-                    cite_nums.append(cites[w])
-                    c = c.replace(w, str(cites[w]))
-
-                # Sort the cites
-                if sort_cites:
-                    cite_nums.sort()
-
-                new_cites: List[str] = []
-
-                # Compress
-                if compress_cite:
-                    cont = False  # Cite number continues
-                    prev_c = -1  # Previous cite
-                    compr_range = -1  # First compress
-                    for w in cite_nums:
-                        if w - prev_c != 1 or w == cite_nums[-1]:
-                            if cont:
-                                # Find if the first is present in the list
-                                for m in range(len(new_cites)):
-                                    if new_cites[m] == str(compr_range):
-                                        new_cites.pop(m)
-                                        break
-                                new_cites.append(f'{compr_range}-{w}')
-                            else:
-                                new_cites.append(str(w))
-                            cont = False
-                            compr_range = w
-                        else:
-                            cont = True
-                        prev_c = w
-
-                else:
-                    for w in cite_nums:
-                        new_cites.append(str(w))
-
-                c = cite_separator.join(new_cites)
-                eqn_mode = run_j in look_eqn
-                open_cite = _TAG_OPEN_CITE if not eqn_mode else _TAG_OPEN_CITE_EQN
-                close_cite = _TAG_CLOSE_CITE if not eqn_mode else _TAG_CLOSE_CITE_EQN
-                s = s[:k] + FONT_FORMAT_SETTINGS['cite'] + open_cite + c + \
-                    close_cite + FONT_FORMAT_SETTINGS['normal'] + s[k + j + 1:]
+        # Find the closing brace of the citation command
+        for j in range(k, len(s)):
+            if s[j] == '}':
+                # Remove the citation command and its argument
+                s = s[:k] + s[j + 1:]
                 break
+
+    return s
 
 
 def process_citeauthor(
@@ -1594,8 +1617,13 @@ def process_longtable(s: str, **kwargs) -> str:
 
         caption_start = longtable_code.find(r'\caption{')
         caption_end = longtable_code.find('}', caption_start + len(r'\caption{'))
+
         if caption_start != -1 and caption_end != -1:
             caption = longtable_code[caption_start + len(r'\caption{'):caption_end]
+            # Check if there is an immediate '}' after the caption
+            if longtable_code[caption_end] == '}':
+                caption += '}'
+            print(caption)
         else:
             caption = 'No caption'
 
@@ -1816,7 +1844,7 @@ def process_commands_no_arguments(
     return s
 
 
-def remove_command_with_arguments(s: str, tagname: str) -> str:
+def remove_removable_command_with_arguments(s: str, tagname: str) -> str:
     """
     Removes a latex tag code.
 
@@ -1839,7 +1867,7 @@ def remove_command_with_arguments(s: str, tagname: str) -> str:
     return s
 
 
-def process_commands_with_arguments(
+def process_removable_commands_with_arguments(
     s: str,
     replace_tags: Optional[List] = None,
     **kwargs
@@ -1858,7 +1886,7 @@ def process_commands_with_arguments(
         ]
 
     for tag in replace_tags:
-        s = remove_command_with_arguments(s, tag)
+        s = remove_removable_command_with_arguments(s, tag)
 
     if kwargs.get('pb'):  # Update progressbar
         kwargs.get('pb').update('Removing common tags')
@@ -1883,6 +1911,56 @@ def process_url(s: str, **kwargs):
                 url_content = s[k + 5:k + j]
                 s = s[:k] + url_content + s[k + j + 1:]
                 break
+
+
+
+def remove_command_with_arguments(s: str, tagname: str) -> str:
+    """
+    Removes a latex tag code.
+
+    :param s: Latex string code
+    :param tagname: Tag code
+    :return: String without tags
+    """
+    command = '\\' + tagname
+
+    while True:
+        k = find_str(s, command +'{')
+        if k == -1:
+            return s
+        for j in range(len(s)):
+            if s[k + j] == '}':
+                content = s[k + 5:k + j]
+                s = s[:k] + content + s[k + j + 1:]
+                break
+
+    return s
+
+
+def process_commands_with_arguments(
+    s: str,
+    replace_tags: Optional[List] = None,
+    **kwargs
+) -> str:
+    """
+    Remove common tags from string.
+
+    :param s: Latex string code
+    :param replace_tags: List to replace. If ``None``, default will be used
+    :return: Text without tags
+    """
+    if replace_tags is None:
+        replace_tags = [
+            'it'
+        ]
+
+    for tag in replace_tags:
+        s = remove_command_with_arguments(s, tag)
+
+    if kwargs.get('pb'):  # Update progressbar
+        kwargs.get('pb').update('Removing common tags')
+    return s
+
 
 
 import re
@@ -1973,6 +2051,7 @@ def remove_environment_content(
             kwargs.get('pb').update(f'Processing {env} environment')
 
     return s
+
 
 def remove_math_commands(s: str, **kwargs) -> str:
     """
