@@ -33,6 +33,7 @@ __all__ = [
     'process_figure',
     'process_longtable',
     'process_table',
+    'process_tabular',
     'process_url',
     'process_footnotes',
     'process_commands_no_arguments',
@@ -271,7 +272,8 @@ def remove_common_tags(
             'textsuperscript',
             'texttt',
             'text'
-            'it'
+            'it',
+            'underline'
         ]
 
     for tag in replace_tags:
@@ -986,7 +988,7 @@ def remove_commands_param(
             'ifthenelse',
             'newcommand',
             'newenvironment',
-            'usepackage'
+            'usepackage',
         ]
 
     for i in range(len(s)):
@@ -1275,7 +1277,7 @@ def process_items(s: str, lang: str, **kwargs) -> str:
     :param lang: Language tag
     :return: Processed items
     """
-    if not ('itemize' in s or 'enumerate' in s or 'tablenotes' in s):
+    if not ('itemize' in s or 'enumerate' in s or 'tablenotes' in s or 'description' in s):
         if kwargs.get('pb'):  # Update progressbar
             kwargs.get('pb').update('No item found')
         return s
@@ -1295,6 +1297,8 @@ def process_items(s: str, lang: str, **kwargs) -> str:
             return 'enumerate'
         if 'tablenotes' in e:
             return 'tablenotes'
+        if 'description' in e:
+            return 'description'
         return ''
 
     def _are_item(e: str) -> bool:
@@ -1304,7 +1308,7 @@ def process_items(s: str, lang: str, **kwargs) -> str:
         :param e: Environment name
         :return: True if item
         """
-        return e == 'itemize' or e == 'enumerate' or e == 'tablenotes'
+        return e == 'itemize' or e == 'enumerate' or e == 'tablenotes' or e == 'description'
 
     # First, process the nested ones
     while True:
@@ -1435,6 +1439,23 @@ def _process_item(s: str, t: str, depth: int = 0) -> str:
             if not item.endswith('.'):
                 item += '.'
             new_s += f"{line}{item}\n"
+
+    elif t == 'description':
+        # Process description environment
+        items = s.split('\\item')
+        new_s = ""
+        for item in items:
+            item = item.strip()
+            if not item:
+                continue
+            # Split into term and description
+            if ']' in item:
+                term, description = item.split(']', 1)
+                term = term[1:].strip()  # Remove the '[' and trim
+                description = description.strip()
+                if not description.endswith('.'):
+                    description += '.'
+                new_s += f"{line}{term}: {description}\n"
 
         new_s = new_s.replace('\n\n', '\n').strip()
 
@@ -1623,7 +1644,6 @@ def process_longtable(s: str, **kwargs) -> str:
             # Check if there is an immediate '}' after the caption
             if longtable_code[caption_end] == '}':
                 caption += '}'
-            print(caption)
         else:
             caption = 'No caption'
 
@@ -1726,6 +1746,55 @@ def process_table(s: str, **kwargs) -> str:
     return s
 
 
+def process_tabular(s: str, **kwargs) -> str:
+    """
+    Extracts and formats plain text from a LaTeX tabular environment, including support for
+    multirow, multicolumn, and cline commands.
+
+    :param s: LaTeX string containing a tabular environment
+    :return: Modified LaTeX string with extracted table content as plain text
+    """
+    if "\\begin{tabular}" not in s:
+        if kwargs.get('pb'):
+            kwargs.get('pb').update('No tabular environment found')
+        return s
+
+    while "\\begin{tabular}" in s:
+        tabular_start = s.find("\\begin{tabular}")
+        tabular_end = s.find("\\end{tabular}") + len("\\end{tabular}")
+        tabular_code = s[tabular_start:tabular_end]
+
+        # Remove \cline commands
+        tabular_code = re.sub(r"\\cline\{.*?\}", "", tabular_code)
+
+        # Extract tabular content
+        content = tabular_code.split("\\hline")
+        table_content = []
+
+        for row in content:
+            row = row.strip()
+            if not row or "\\begin{tabular}" in row or "\\end{tabular}" in row:
+                continue
+
+            # Remove LaTeX commands like \multicolumn and \multirow
+            row = re.sub(r"\\multicolumn\{.*?\}\{.*?\}\{(.*?)\}", r"\1", row)
+            row = re.sub(r"\\multirow\{.*?\}\{.*?\}\{(.*?)\}", r"\1", row)
+
+            # Process columns
+            columns = [col.strip() for col in row.split("&")]
+            if columns:
+                table_content.append(", ".join(columns) + ".")
+
+        parsed_tabular = "Extracted Table:\n" + "\n".join(table_content)
+
+        # Replace the tabular environment with the processed version in the original string
+        s = s[:tabular_start] + parsed_tabular + s[tabular_end:]
+
+    if kwargs.get('pb'):
+        kwargs.get('pb').update('Processing tabular environment')
+
+    return s
+
 def process_matrix(s: str, **kwargs) -> str:
     """
     Process matrix environments and extract the content, converting it into sentences.
@@ -1741,6 +1810,8 @@ def process_matrix(s: str, **kwargs) -> str:
         r'\begin{vmatrix}', r'\end{vmatrix}',
         r'\begin{Vmatrix}', r'\end{Vmatrix}'
     ]
+
+    s = re.sub(r'', r'', s, flags=re.DOTALL)
 
     for env_start, env_end in zip(matrix_environments[::2], matrix_environments[1::2]):
         while env_start in s:
@@ -1785,14 +1856,16 @@ def process_commutable_сommands(s: str, **kwargs):
     replace_tags = {
         "LaTeX": "LaTeX",
         "textunderscore": "_",
-        "textbackslash": "\\"
+        "textbackslash": "\\",
+        "{": "{",
+        "}": "}"
     }
 
-    # Change later
-    if '\\LaTeX' not in s:
-        if kwargs.get('pb'):  # Update progressbar
-            kwargs.get('pb').update('No LaTeX commands found')
-        return s
+    # # Change later
+    # if '\\LaTeX' not in s:
+    #     if kwargs.get('pb'):  # Update progressbar
+    #         kwargs.get('pb').update('No commands found')
+    #     return s
 
     for key in replace_tags:
         command = "\\" + key
@@ -1810,6 +1883,7 @@ def remove_command_no_arguments(s: str, tagname: str) -> str:
     :return: String without tags
     """
     command = '\\' + tagname
+    s = s.replace(command + '\n', '')
     s = s.replace(command + " ", '')
     s = s.replace(command, '')
     return s
@@ -1833,7 +1907,8 @@ def process_commands_no_arguments(
             'noindent',
             'newline',
             'quad',
-            'displaystyle'
+            'displaystyle',
+            'maketitle'
         ]
 
     for tag in replace_tags:
@@ -1900,6 +1975,11 @@ def process_url(s: str, **kwargs):
         :param s: Latex string code
         """
 
+    url_tags = [
+        "url"
+    ]
+
+
     while True:
         k = find_str(s, '\\url{')
         if k == -1:
@@ -1913,26 +1993,42 @@ def process_url(s: str, **kwargs):
                 break
 
 
-
 def remove_command_with_arguments(s: str, tagname: str) -> str:
     """
-    Removes a latex tag code.
+    Removes a LaTeX tag command and replaces it with its content.
 
-    :param s: Latex string code
-    :param tagname: Tag code
-    :return: String without tags
+    :param s: LaTeX string code
+    :param tagname: Tag name (e.g., 'href', 'it')
+    :return: String without the command but with its content
     """
     command = '\\' + tagname
 
     while True:
-        k = find_str(s, command +'{')
+        # Find the start of the command
+        k = s.find(command + '{')
         if k == -1:
             return s
-        for j in range(len(s)):
-            if s[k + j] == '}':
-                content = s[k + 5:k + j]
-                s = s[:k] + content + s[k + j + 1:]
-                break
+
+        brace_level = 0
+        content_start = k + len(command) + 1
+        content_end = -1
+
+        for j in range(content_start, len(s)):
+            if s[j] == '{':
+                brace_level += 1
+            elif s[j] == '}':
+                if brace_level == 0:
+                    content_end = j
+                    break
+                else:
+                    brace_level -= 1
+
+        if content_end == -1:
+            return s
+
+        content = s[content_start:content_end]
+
+        s = s[:k] + content + s[content_end + 1:]
 
     return s
 
@@ -1951,7 +2047,8 @@ def process_commands_with_arguments(
     """
     if replace_tags is None:
         replace_tags = [
-            'it'
+            'it',
+            'href'
         ]
 
     for tag in replace_tags:
@@ -1995,26 +2092,40 @@ def process_verbatim(s: str, **kwargs) -> str:
     :param s: LaTeX string containing a verbatim block
     :return: Modified LaTeX string with extracted verbatim content as plain text
     """
-    if "\\begin{verbatim}" not in s:
-        if kwargs.get('pb'):
-            kwargs.get('pb').update('No verbatim environment found')
-        return s
 
-    while "\\begin{verbatim}" in s:
-        verbatim_start = s.find("\\begin{verbatim}")
-        verbatim_end = s.find("\\end{verbatim}") + len("\\end{verbatim}")
-        verbatim_code = s[verbatim_start:verbatim_end]
+    environment_tags = [
+        'verbatim',
+        'theorem',
+        'corollary',
+        'lemma',
+        'remark',
+        'proof',
+    ]
 
-        # Extract content inside verbatim
-        content_start = verbatim_code.find("\\begin{verbatim}") + len("\\begin{verbatim}")
-        content_end = verbatim_code.find("\\end{verbatim}")
-        verbatim_content = verbatim_code[content_start:content_end].strip()
+    for tag in environment_tags:
+        command_begin = "\\begin{" + tag + "}"
+        command_end = "\\end{" + tag + "}"
 
-        # Replace the verbatim environment with the extracted text
-        s = s[:verbatim_start] + verbatim_content + s[verbatim_end:]
+        if command_begin not in s:
+            if kwargs.get('pb'):
+                kwargs.get('pb').update('No verbatim environment found')
+            return s
+
+        while command_begin in s:
+            verbatim_start = s.find(command_begin)
+            verbatim_end = s.find(command_end) + len(command_end)
+            verbatim_code = s[verbatim_start:verbatim_end]
+
+            # Extract content inside verbatim
+            content_start = verbatim_code.find(command_begin) + len(command_begin)
+            content_end = verbatim_code.find(command_end)
+            verbatim_content = verbatim_code[content_start:content_end].strip()
+
+            # Replace the verbatim environment with the extracted text
+            s = s[:verbatim_start] + verbatim_content + s[verbatim_end:]
 
     if kwargs.get('pb'):
-        kwargs.get('pb').update('Processing verbatim environment')
+        kwargs.get('pb').update('Processing environment with content')
 
     return s
 
@@ -2061,11 +2172,11 @@ def remove_math_commands(s: str, **kwargs) -> str:
     :return: Code without math commands
     """
     # Remove inline math commands \( ... \) and $ ... $
-    s = re.sub(r'\\\(.*?\\\)', 'math placeholder', s)
-    s = re.sub(r'\$.*?\$', 'math placeholder', s)
+    s = re.sub(r'\\\(.*?\\\)', 'math equation placeholder', s)
+    s = re.sub(r'\$.*?\$', 'math equation placeholder', s)
 
     # Remove display math commands \[ ... \]
-    s = re.sub(r'\\\[.*?\\\]', '(math equation placeholder)', s)
+    s = re.sub(r'\\\[[\s\S]*?\\\]', 'math equation placeholder.', s)
 
     # Remove \begin{math} ... \end{math} environments
     s = re.sub(r'\\begin{math}.*?\\end{math}', 'math placeholder', s, flags=re.DOTALL)
