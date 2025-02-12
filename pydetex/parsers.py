@@ -2172,14 +2172,14 @@ def remove_math_commands(s: str, **kwargs) -> str:
     :return: Code without math commands
     """
     # Remove inline math commands \( ... \) and $ ... $
-    s = re.sub(r'\\\(.*?\\\)', 'math equation placeholder', s)
-    s = re.sub(r'\$.*?\$', 'math equation placeholder', s)
+    s = re.sub(r'\\\(.*?\\\)', 'Math equation placeholder', s)
+    s = re.sub(r'\$.*?\$', 'Math equation placeholder', s)
 
     # Remove display math commands \[ ... \]
-    s = re.sub(r'\\\[[\s\S]*?\\\]', 'math equation placeholder.', s)
+    s = re.sub(r'\\\[[\s\S]*?\\\]', 'Math equation placeholder.', s)
 
     # Remove \begin{math} ... \end{math} environments
-    s = re.sub(r'\\begin{math}.*?\\end{math}', 'math placeholder', s, flags=re.DOTALL)
+    s = re.sub(r'\\begin{math}.*?\\end{math}', 'Math placeholder', s, flags=re.DOTALL)
 
     return s
 
