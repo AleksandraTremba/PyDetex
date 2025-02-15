@@ -152,7 +152,7 @@ class _LangManager(object):
                 'status_writing': 'Writing',
                 'tag_repeated': 'repeated',
                 'version_upgrade': 'You are using an outdated PyDetex version, consider upgrading to v{0}.\n\nTo update, '
-                                   'run "pip install --upgrade pydetex" in your terminal',
+                                   'run "pipe install --upgrade pydetex" in your terminal',
                 'version_upgrade_title': 'Oudated PyDetex version',
                 'window_size_large': 'Large',
                 'window_size_medium': 'Medium',
@@ -263,7 +263,7 @@ class _LangManager(object):
                 'status_writing': 'Escribiendo',
                 'tag_repeated': 'repetido',
                 'version_upgrade': 'Estás usando una versión desactualizada de PyDetex, considera actualizar a v{0}.'
-                                   '\n\nPara esto, ejecuta "pip install --upgrade pydetex" en tu terminal',
+                                   '\n\nPara esto, ejecuta "pipe install --upgrade pydetex" en tu terminal',
                 'version_upgrade_title': 'Versión desactualizada de PyDetex',
                 'window_size_large': 'Grande',
                 'window_size_medium': 'Mediano',

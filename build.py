@@ -10,7 +10,7 @@ import shutil
 import struct
 import sys
 
-assert len(sys.argv) == 2, 'Argument is required, usage: build.py pyinstaller/pip/twine'
+assert len(sys.argv) == 2, 'Argument is required, usage: build.py pyinstaller/pipe/twine'
 mode = sys.argv[1].strip()
 sys_arch = struct.calcsize('P') * 8
 
@@ -24,26 +24,26 @@ if mode == 'pyinstaller':
     os.system(f'{pyinstaller} specs/PyDetex_Win_Single.spec --noconfirm {upx}')
     os.system(f'{pyinstaller} specs/PyDetex_macOS.spec --noconfirm')
 
-elif mode == 'pip':
-    if os.path.isdir('dist/pip'):
+elif mode == 'pipe':
+    if os.path.isdir('dist/pipe'):
         for k in os.listdir('dist'):
             if '.egg' in k:
                 os.remove(f'dist/{k}')
-    if os.path.isdir('dist/pip'):
-        for k in os.listdir('dist/pip'):
+    if os.path.isdir('dist/pipe'):
+        for k in os.listdir('dist/pipe'):
             if 'pydetex-' in k:
-                os.remove(f'dist/pip/{k}')
+                os.remove(f'dist/pipe/{k}')
     if os.path.isdir('build'):
         for k in os.listdir('build'):
             if 'bdist.' in k or k == 'lib':
                 shutil.rmtree(f'build/{k}')
-    os.system(f'python setup.py sdist --dist-dir dist/pip bdist_wheel --dist-dir dist/pip')
+    os.system(f'python setup.py sdist --dist-dir dist/pipe bdist_wheel --dist-dir dist/pipe')
 
 elif mode == 'twine':
-    if os.path.isdir('dist/pip'):
-        os.system(f'python -m twine upload dist/pip/*')
+    if os.path.isdir('dist/pipe'):
+        os.system(f'python -m twine upload dist/pipe/*')
     else:
-        raise FileNotFoundError('Not distribution been found, execute build.py pip')
+        raise FileNotFoundError('Not distribution been found, execute build.py pipe')
 
 else:
     raise ValueError(f'Unknown mode {mode}')
