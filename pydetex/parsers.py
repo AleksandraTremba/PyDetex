@@ -1660,7 +1660,9 @@ def process_longtable(s: str, **kwargs) -> str:
                 not row.startswith(r"\endlastfoot") and
                 not row.startswith(r"\endfoot")):
                 columns = row.split('&')
-                formatted_row = ', '.join([col.strip() for col in columns]) + '.'
+                formatted_row = ', '.join([col.strip() for col in columns]).strip()
+                if not formatted_row.endswith(('.', '!', '?')):
+                    formatted_row += '.'
                 table_content.append(formatted_row)
 
         parsed_longtable = f"Longtable caption: {caption}\n" + '\n'.join(table_content)
@@ -1832,7 +1834,10 @@ def process_matrix(s: str, **kwargs) -> str:
                 row = row.strip()
                 if row:
                     columns = row.split('&')
-                    formatted_row = ', '.join([col.strip() for col in columns]) + '.'
+                    formatted_row = ', '.join([col.strip() for col in columns]).strip()
+                    if not formatted_row.endswith(('.', '!', '?')):
+                        formatted_row += '.'
+
                     table_content.append(formatted_row)
 
             # Combine the results
