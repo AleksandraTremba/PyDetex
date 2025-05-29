@@ -1,3 +1,5 @@
+import re
+
 """
 PyDetex
 https://github.com/ppizarror/PyDetex
@@ -22,6 +24,7 @@ __all__ = [
     'remove_commands_param',
     'remove_commands_param_noargv',
     'remove_comments',
+    'normalize_whitespace',
     'remove_common_tags',
     'remove_environments',
     'remove_equations',
@@ -1636,38 +1639,36 @@ def process_longtable(s: str, **kwargs) -> str:
         longtable_end = s.find(r'\end{longtable}', longtable_start) + len(r'\end{longtable}')
         longtable_code = s[longtable_start:longtable_end]
 
-        caption_start = longtable_code.find(r'\caption{')
-        caption_end = longtable_code.find('}', caption_start + len(r'\caption{'))
+        # Extract caption using regex, capturing content inside \caption{...}
+        caption_match = re.search(r'\\caption{(.*?)}', longtable_code, re.DOTALL)
+        caption = caption_match.group(1).strip() if caption_match else 'No caption'
 
-        if caption_start != -1 and caption_end != -1:
-            caption = longtable_code[caption_start + len(r'\caption{'):caption_end]
-            # Check if there is an immediate '}' after the caption
-            if longtable_code[caption_end] == '}':
-                caption += '}'
-        else:
-            caption = 'No caption'
+        # Get content after the first \hline (after header row)
+        content_start = longtable_code.find(r'\hline', caption_match.end() if caption_match else 0)
+        if content_start == -1:
+            content_start = 0
+        content = longtable_code[content_start:].split(r'\end{longtable}')[0].strip()
 
+        # Process rows, skipping formatting commands
         table_content = []
-        content_start = longtable_code.find(r'\hline', caption_end) + len(r'\hline')
-        content = longtable_code[content_start:longtable_code.find(r'\end{longtable}')].strip()
-
-        # Process rows (skip \hline, \multicolumn, etc.)
         rows = content.split(r'\hline')
         for row in rows:
             row = row.strip()
-            if (row and not row.startswith(r'\multicolumn') and not row.startswith(r"\endfirsthead")
-                and not row.startswith(r"\endhead") and not row.startswith(r"\endlastfoot")):
+            if (row and not row.startswith(r'\multicolumn') and
+                not row.startswith(r"\endfirsthead") and
+                not row.startswith(r"\endhead") and
+                not row.startswith(r"\endlastfoot") and
+                not row.startswith(r"\endfoot")):
                 columns = row.split('&')
                 formatted_row = ', '.join([col.strip() for col in columns]) + '.'
                 table_content.append(formatted_row)
 
-        # Combine the results
         parsed_longtable = f"Longtable caption: {caption}\n" + '\n'.join(table_content)
 
-        # Replace the longtable environment with the processed version in the original string
+        # Replace original longtable with parsed version
         s = s[:longtable_start] + parsed_longtable + s[longtable_end:]
 
-    if kwargs.get('pb'):  # Update progressbar
+    if kwargs.get('pb'):
         kwargs.get('pb').update('Processing longtable environment')
 
     return s
@@ -1936,7 +1937,7 @@ def remove_removable_command_with_arguments(s: str, tagname: str) -> str:
         for j in range(len(s)):
             if s[k + j] == '}':
                 tagname = tagname[0].upper() + tagname[1:]
-                s = s[:k] + f"{tagname} placeholder." + s[k + j + 1:]
+                s = s[:k - 1] + f"" + s[k + j + 1:]
                 break
 
     return s
@@ -2059,16 +2060,22 @@ def process_commands_with_arguments(
     return s
 
 
+def normalize_whitespace(s: str, **kwargs) -> str:
+    """
+    Normalize whitespace: Convert newlines followed by text into spaces.
 
-import re
+    :param s: Input string
+    :return: String with normalized whitespace
+    """
+    s = re.sub(r'\n(?=\S)', ' ', s)  # \n followed by non-whitespace -> space
+    s = re.sub(r'[ \t]+', ' ', s)  # Collapse multiple spaces/tabs
+    return s
 
 
 def process_footnotes(s: str, **kwargs):
     """
     Process footnotes by removing the \footnote{} command but keeping the content inside.
-
-    :param s: LaTeX string code
-    :return: Processed string with footnote contents preserved
+    Ensures that spacing is handled cleanly, avoiding double spaces.
     """
 
     if '\\footnote{' not in s:
@@ -2076,10 +2083,10 @@ def process_footnotes(s: str, **kwargs):
             kwargs.get('pb').update('No footnotes found')
         return s
 
-    # Regex pattern to match \footnote{content} and extract the content inside
-    s = re.sub(r'\\footnote{(.*?)}', r' (\1)', s)
+    # Match optional whitespace before \footnote, and replace it with a single space and content
+    s = re.sub(r'\s*\\footnote{(.*?)}', r' (\1)', s)
 
-    if kwargs.get('pb'):  # Update progressbar
+    if kwargs.get('pb'):
         kwargs.get('pb').update('Processing footnotes')
 
     return s
@@ -2156,7 +2163,7 @@ def remove_environment_content(
             env_start = s.find(begin_tag)
             env_end = s.find(end_tag) + len(end_tag)
             env = env[0].upper() + env[1:]
-            s = s[:env_start] + f"{env} placeholder." + s[env_end:]
+            s = s[:env_start - 1] + f"" + s[env_end:]
 
         if kwargs.get('pb'):
             kwargs.get('pb').update(f'Processing {env} environment')
@@ -2172,8 +2179,8 @@ def remove_math_commands(s: str, **kwargs) -> str:
     :return: Code without math commands
     """
     # Remove inline math commands \( ... \) and $ ... $
-    s = re.sub(r'\\\(.*?\\\)', 'Math equation placeholder', s)
-    s = re.sub(r'\$.*?\$', 'Math equation placeholder', s)
+    s = re.sub(r'\s*\\\(.*?\\\)', '', s)
+    s = re.sub(r'\$.*?\$', '', s)
 
     # Remove display math commands \[ ... \]
     s = re.sub(r'\\\[[\s\S]*?\\\]', 'Math equation placeholder.', s)
