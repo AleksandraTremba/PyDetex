@@ -1621,35 +1621,37 @@ def process_figure(s: str, **kwargs) -> str:
     return s
 
 
-def process_longtable(s: str, **kwargs) -> str:
-    """
-    Process longtable environment and extract the caption and table content.
+def extract_caption(caption_str):
+    # Check for a single outer LaTeX command like \it{...}
+    match = re.match(r'\\\w+{([^{}]+)}$', caption_str.strip())
+    if match:
+        return match.group(1).strip()
+    return caption_str.strip()
 
-    :param s: Latex string code
-    :return: Processed longtable with caption and rows
-    """
+
+def process_longtable(s: str, **kwargs) -> str:
     if '\\begin{longtable}' not in s:
-        if kwargs.get('pb'):  # Update progressbar
+        if kwargs.get('pb'):
             kwargs.get('pb').update('No longtable environment found')
         return s
 
-    # Process all longtables
     while '\\begin{longtable}' in s:
         longtable_start = s.find(r'\begin{longtable}')
         longtable_end = s.find(r'\end{longtable}', longtable_start) + len(r'\end{longtable}')
         longtable_code = s[longtable_start:longtable_end]
 
-        # Extract caption using regex, capturing content inside \caption{...}
-        caption_match = re.search(r'\\caption{(.*?)}', longtable_code, re.DOTALL)
-        caption = caption_match.group(1).strip() if caption_match else 'No caption'
+        # Extract \caption{...} accurately (handles nested braces)
+        caption_match = re.search(r'\\caption\s*{([^{}]*(?:{[^{}]*}[^{}]*)*)}', longtable_code, re.DOTALL)
+        caption_raw = caption_match.group(1) if caption_match else 'No caption'
+        caption = extract_caption(caption_raw)
 
-        # Get content after the first \hline (after header row)
+        # Get content after first \hline
         content_start = longtable_code.find(r'\hline', caption_match.end() if caption_match else 0)
         if content_start == -1:
             content_start = 0
         content = longtable_code[content_start:].split(r'\end{longtable}')[0].strip()
 
-        # Process rows, skipping formatting commands
+        # Extract rows
         table_content = []
         rows = content.split(r'\hline')
         for row in rows:
@@ -1667,13 +1669,14 @@ def process_longtable(s: str, **kwargs) -> str:
 
         parsed_longtable = f"Longtable caption: {caption}\n" + '\n'.join(table_content)
 
-        # Replace original longtable with parsed version
+        # Replace original with parsed version
         s = s[:longtable_start] + parsed_longtable + s[longtable_end:]
 
     if kwargs.get('pb'):
         kwargs.get('pb').update('Processing longtable environment')
 
     return s
+
 
 
 def process_table(s: str, **kwargs) -> str:
