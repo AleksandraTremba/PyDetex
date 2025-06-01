@@ -2186,15 +2186,19 @@ def remove_math_commands(s: str, **kwargs) -> str:
     :param s: LaTeX code
     :return: Code without math commands
     """
-    # Remove inline math commands \( ... \) and $ ... $
+    # Remove display math environments first
+    # Matches $$ ... $$
+    s = re.sub(r'\s*\$\$[\s\S]*?\$\$\s*', '', s)
+    # Matches \[ ... \]
+    s = re.sub(r'\s*\\\[[\s\S]*?\\\]\s*', '', s)
+    # Matches \begin{math} ... \end{math}
+    s = re.sub(r'\s*\\begin{math}.*?\\end{math}\s*', '', s, flags=re.DOTALL)
+
+    # Then, remove inline math commands
+    # Matches \( ... \)
     s = re.sub(r'\s*\\\(.*?\\\)', '', s)
-    s = re.sub(r'\$.*?\$', '', s)
-
-    # Remove display math commands \[ ... \]
-    s = re.sub(r'\\\[[\s\S]*?\\\]', 'Math equation placeholder.', s)
-
-    # Remove \begin{math} ... \end{math} environments
-    s = re.sub(r'\\begin{math}.*?\\end{math}', 'Math placeholder', s, flags=re.DOTALL)
+    # Matches $ ... $
+    s = re.sub(r'\s*\$.*?\$', '', s)
 
     return s
 
