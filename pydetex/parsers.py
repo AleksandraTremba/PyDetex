@@ -395,6 +395,9 @@ def process_cite(
         for j in range(k, len(s)):
             if s[j] == '}':
                 # Remove the citation command and its argument
+                # Strip any space before the citation command
+                if k > 0 and s[k - 1] == ' ':
+                    k -= 1
                 s = s[:k] + s[j + 1:]
                 break
 
